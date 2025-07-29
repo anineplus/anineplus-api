@@ -139,6 +139,26 @@ Before getting started, ensure you have the following installed:
 
 ## 🛠️ Development
 
+> **📖 For detailed development setup with hot reload, see [DEVELOPMENT.md](./DEVELOPMENT.md)**
+
+The development environment supports automatic code reloading and includes all services:
+- API Gateway (port 3000) - GraphQL endpoint
+- User Service (port 50051) - gRPC microservice  
+- Payment Service (port 50052) - gRPC microservice
+- PostgreSQL (port 5432) - Database
+- Redis (port 6379) - Cache
+
+### Quick Development Start
+
+```bash
+# Validate your environment
+bun run validate-dev
+
+# Start development environment with hot reload
+bun run docker:dev:build  # First time only
+bun run dev              # Start all services
+```
+
 ### Available Scripts
 
 | Command | Description | Requirements |
