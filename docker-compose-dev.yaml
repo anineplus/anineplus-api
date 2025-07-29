@@ -1,34 +1,150 @@
-version: "3"
-
 services:
+  # Infrastructure Services
   user-database:
     image: "postgres:latest"
-    container_name: "user-database"
+    container_name: "user-database-dev"
     ports:
       - "5432:5432"
     volumes:
       - userdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME:-bune-cms}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bune-cms}
+      POSTGRES_DB: ${DB_DATABASE:-user-svc}
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${DB_USERNAME}'"]
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${DB_USERNAME:-bune-cms}'"]
       interval: 30s
       timeout: 30s
       retries: 3
-    restart: "on-failure"
+    restart: "unless-stopped"
+    networks:
+      - backend
 
   cache-service:
     image: "redis:latest"
-    container_name: "cache-service"
+    container_name: "cache-service-dev"
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'redis-cli PING'"]
+      test: ["CMD-SHELL", "redis-cli ping"]
       interval: 30s
       timeout: 30s
       retries: 3
-    restart: "on-failure"
+    restart: "unless-stopped"
+    networks:
+      - backend
+
+  # Application Services
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: "api-gateway-dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api-gateway/src:/app/src:ro
+      - ./api-gateway/package.json:/app/package.json:ro
+      - ./api-gateway/tsconfig.json:/app/tsconfig.json:ro
+      - ./api-gateway/nest-cli.json:/app/nest-cli.json:ro
+      - ./libs:/app/libs:ro
+      - api_gateway_node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    env_file:
+      - .env
+    depends_on:
+      cache-service:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: "unless-stopped"
+    networks:
+      - frontend
+      - backend
+
+  user-service:
+    build:
+      context: ./microservices/user-service
+      dockerfile: Dockerfile.dev
+    container_name: "user-service-dev"
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./microservices/user-service/src:/app/src:ro
+      - ./microservices/user-service/package.json:/app/package.json:ro
+      - ./microservices/user-service/tsconfig.json:/app/tsconfig.json:ro
+      - ./microservices/user-service/nest-cli.json:/app/nest-cli.json:ro
+      - ./libs:/app/libs:ro
+      - user_service_node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - .env
+    depends_on:
+      user-database:
+        condition: service_healthy
+      cache-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/bin/grpc_health_probe", "-addr=:50051"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: "unless-stopped"
+    networks:
+      - backend
+
+  payment-service:
+    build:
+      context: ./microservices/payment-service
+      dockerfile: Dockerfile.dev
+    container_name: "payment-service-dev"
+    ports:
+      - "50052:50052"
+    volumes:
+      - ./microservices/payment-service/src:/app/src:ro
+      - ./microservices/payment-service/package.json:/app/package.json:ro
+      - ./microservices/payment-service/tsconfig.json:/app/tsconfig.json:ro
+      - ./microservices/payment-service/nest-cli.json:/app/nest-cli.json:ro
+      - ./libs:/app/libs:ro
+      - payment_service_node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=50052
+    env_file:
+      - .env
+    depends_on:
+      user-database:
+        condition: service_healthy
+      cache-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/bin/grpc_health_probe", "-addr=:50052"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: "unless-stopped"
+    networks:
+      - backend
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
 
 volumes:
   userdata:
+  api_gateway_node_modules:
+  user_service_node_modules:
+  payment_service_node_modules:
