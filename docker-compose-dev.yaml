@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-bune-cms}
       POSTGRES_DB: ${DB_DATABASE:-user-svc}
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${DB_USERNAME:-bune-cms}'"]
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${DB_USERNAME:-bune-cms} -d ${DB_DATABASE:-user-svc}'"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -37,8 +37,8 @@ services:
   # Application Services
   api-gateway:
     build:
-      context: ./api-gateway
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./api-gateway/Dockerfile.dev
     container_name: "api-gateway-dev"
     ports:
       - "3000:3000"
@@ -72,8 +72,8 @@ services:
 
   user-service:
     build:
-      context: ./microservices/user-service
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./microservices/user-service/Dockerfile.dev
     container_name: "user-service-dev"
     ports:
       - "50051:50051"
@@ -105,8 +105,8 @@ services:
 
   payment-service:
     build:
-      context: ./microservices/payment-service
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./microservices/payment-service/Dockerfile.dev
     container_name: "payment-service-dev"
     ports:
       - "50052:50052"
