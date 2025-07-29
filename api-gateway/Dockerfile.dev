@@ -1,0 +1,40 @@
+# Development Dockerfile for API Gateway
+FROM node:20-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Install curl for health checks and other required tools
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
+# Create necessary directories
+RUN mkdir -p src
+
+# Copy package files and libs first for better caching
+COPY ./api-gateway/package.docker.json ./package.json
+
+# Install dependencies using npm (more reliable in Docker)
+RUN npm install
+
+# Copy necessary configuration files
+COPY ./api-gateway/tsconfig*.json ./
+COPY ./api-gateway/nest-cli.json ./
+COPY ./api-gateway/.prettierrc* ./
+COPY ./api-gateway/eslint.config.mjs ./
+
+# Set environment variables for development
+ENV NODE_ENV=development
+ENV PORT=3000
+
+# Expose the application port
+EXPOSE 3000
+
+# Use npm for development start (more reliable)
+CMD ["npm", "run", "start:dev"]
